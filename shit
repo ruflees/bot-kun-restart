@@ -1,0 +1,44 @@
+            await ctx.send('The contender %s by %s has been removed'%(dict_for_voting[value][0] ,dict_for_voting[value][1]))
+            del dict_for_voting[value]
+            print(dict_for_voting)
+
+
+
+
+import discord
+from discord.ext import commands
+
+client = commands.Bot(command_prefix='#')
+
+@client.event
+async def on_ready():
+    print("bot is ready")
+
+@client.command()
+async def test(ctx, *, member:discord.Member=None):
+    await ctx.send(member)
+    print(type(member))
+
+print(member_cleaner('ruflees#2092090'))
+
+
+client.run('NzI5MjI4NDk3NjY2NTcyMzYw.XwF49g.CgFbFirFkMFFqPkd4KcmW35G2eE')
+
+    await ctx.send("Joining %s with %s"%(dict_for_voting[int(member.id)][0], dict_for_voting[int(member2.id)][0]))
+    votes_to_add = 0
+    votes_to_add += dict_for_voting[int(member2.id)][3]
+
+    
+
+@client.command()
+@commands.has_role('Bartender')
+async def test(ctx, member:discord.Member):
+    member_id = ("<@%s>"%(member.id))
+    await ctx.send(member_id)
+
+
+
+274590558528471053: ['goh', 'ruflees', 1, '274590558528471053'], 745765600936067213: ['hxh', 'ruflees test', 1, '745765600936067213']
+
+
+274590558528471053: ['goh', 'ruflees', '274590558528471053'], 745765600936067213: ['hxh', 'ruflees test', '745765600936067213']
