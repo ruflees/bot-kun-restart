@@ -27,27 +27,54 @@ async def on_command_error(ctx, error):
 vote_start = False
 separated_vote = False
 fase_2 = False
+continue_vote = False
+
+# dict_for_voting = {274590558528471053: ['goh', 'ruflees', 1, '274590558528471053'], 745765600936067213: ['hxh', 'ruflees test', 2, '745765600936067213'], 108538100686274560: ['test', 'Brunao', 3, '108538100686274560']}
+# voters = {745765600936067213: ['hxh', 'ruflees test', '745765600936067213'], 108538100686274560: ['test', 'Brunao', '108538100686274560']}
 dict_for_voting = {}
 voters = {}
+tie_contenders = {}
+tie_votes = {}
+continue_voters = {}
 winner = {}
+
+yes_votes = 2
+no_votes = 3
+
+def update_winner():
+    if yes_votes >= no_votes:
+        winner.update({"yes": [yes_votes]})
+        winner.update({"no": [no_votes]})
+            
+    else:
+        winner.update({"no": [no_votes]})
+        winner.update({"yes": [yes_votes]})
 
 #starts a voting session-----------------------------------------------
 @client.command()
 @commands.has_role('Bartender')
-async def start(ctx, arg="off"):
+async def start(ctx, arg="off", *, theme):
     global vote_start, separated_vote
     if vote_start == False:
         if arg.lower() == "on":
             separated_vote = True
-            await ctx.send('A separated voting session has been started, please add your contenders.')
             vote_start = True
+            await ctx.send('A separated voting session has been started, please add your contenders.')
+            
+            embed = discord.Embed(
+                colour = discord.Colour.blue()
+            )
+            embed.set_author(name="The theme is: %s"%(theme))
+
+            await ctx.send(embed=embed)
+
             print("A voting session has been started")
 
             x = datetime.datetime.now()
             contenders_file = open("data/contenders.txt", "a")
             voters_file = open("data/voters.txt", "a")
-            contenders_file.write(" # %s/%s/%s&: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y")))
-            voters_file.write(" # %s/%s/%s&: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y")))
+            contenders_file.write(" # %s/%s/%s %s &: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y"), theme))
+            voters_file.write(" # %s/%s/%s %s &: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y"), theme))
             contenders_file.close()
             voters_file.close()
 
@@ -55,6 +82,13 @@ async def start(ctx, arg="off"):
             await ctx.send('A voting session has been started, please add your contenders.')
             vote_start = True
             print("A voting session has been started")
+
+            embed = discord.Embed(
+                colour = discord.Colour.blue()
+            )
+            embed.set_author(name="The theme is: %s"%(theme))
+
+            await ctx.send(embed=embed)
 
             x = datetime.datetime.now()
             contenders_file = open("data/contenders.txt", "a")
@@ -75,11 +109,12 @@ async def start(ctx, arg="off"):
 @client.command()
 @commands.has_role('Bartender')
 async def stop(ctx):
-    global vote_start, fase_2
+    global vote_start,separated_vote, fase_2
     if vote_start == True:
-        await ctx.send("The voting session has been ended.")
+        await ctx.send("The voting session has been stopped.")
         vote_start = False
         fase_2 = False
+        separated_vote = False
         print("A voting session has been ended.")
     else:
         await ctx.send('There is no voting session in progress.')
@@ -90,7 +125,7 @@ async def stop(ctx):
 async def add(ctx, *, name):
     global dict_for_voting
     name_checker = [dict_for_voting[x][0].lower() for x in dict_for_voting]
-    if vote_start != False:
+    if vote_start == False:
         await ctx.send("There is no voting session in progress.")
 
     elif str(name.lower()) in name_checker:
@@ -100,23 +135,18 @@ async def add(ctx, *, name):
         if separated_vote == True and fase_2 == True:
             await ctx.send("%s the contender adding fase is already done."%ctx.author.mention)
 
-        elif separated_vote == True and fase_2 == False:
+        else:
             await ctx.send("%s added %s" %(ctx.author.name, name))
-            dict_for_voting.update({ctx.author.id : [str(name), str(ctx.author.nick), 0, str(ctx.author.id)]})
+            if ctx.author.nick == None:
+                dict_for_voting.update({ctx.author.id : [str(name), str(ctx.author.name), 0, str(ctx.author.id)]})
+            else:
+                dict_for_voting.update({ctx.author.id : [str(name), str(ctx.author.nick), 0, str(ctx.author.id)]})
 
-            contenders_file = open("contenders.txt", "a")
-            contenders_file.write("%s, %s, %s; " %(str(name), str(ctx.author.nick), str(ctx.author.id)))
+            contenders_file = open("data/contenders.txt", "a")
+            contenders_file.write("%s, %s, %s, %s; " %(str(name), str(ctx.author.name), 0, str(ctx.author.id)))
             contenders_file.close()
 
             print(dict_for_voting)
-
-        else:
-            await ctx.send("%s added %s" %(ctx.author.name, name))
-            dict_for_voting.update({ctx.author.id : [str(name), str(ctx.author.nick), 0, str(ctx.author.id)]})
-
-            contenders_file = open("contenders.txt", "a")
-            contenders_file.write("%s, %s, %s; " %(str(name), str(ctx.author.nick), str(ctx.author.id)))
-            contenders_file.close()
 
 
 #changes to the voting phase--------------------------------------------------
@@ -146,6 +176,9 @@ async def votelist(ctx):
         msg_to_add = "By " + str(dict_for_voting[values][1]) + " and has: " + str(dict_for_voting[values][2]) + " vote(s)"
         embed.add_field(name=str(dict_for_voting[values][0]), value=str(msg_to_add), inline=False)
     
+    print(dict_for_voting)
+    print(voters)
+    
     await ctx.send(embed=embed)
 
 
@@ -155,33 +188,25 @@ async def vote(ctx, *, name):
     global dict_for_voting, voters
     if vote_start == True:
         if ctx.author.id not in voters:
-            if separated_vote == True and fase_2 == True:
-                for value in dict_for_voting:
-                    if str(name).lower() == dict_for_voting[value][0].lower():
-                        await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[value][0]))
-                        voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3])]})
-                        dict_for_voting[value][2] += 1
-
-                        voters_file = open("voters.txt", "a")
-                        voters_file.write("%s, %s; " %(dict_for_voting[value][0], ctx.author.name))
-                        voters_file.close()
-
-                        print('%s voted for %s'%(ctx.author.id, name))
-                        print(dict_for_voting)
-                        print(voters)
-            
-            elif separated_vote == True and fase_2 == False:
+            if separated_vote == True and fase_2 == False:
                 await ctx.send("We aren't in the voting phase yet.")
+
+            elif str(name).lower() == dict_for_voting[ctx.author.id][0].lower():
+                await ctx.send("You cannot vote for yourself.")
             
-            elif separated_vote == False:
+            else:
                 for value in dict_for_voting:
                     if str(name).lower() == dict_for_voting[value][0].lower():
                         await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[value][0]))
-                        voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3])]})
-                        dict_for_voting[value][2] += 1
+                        if ctx.author.nick == None:
+                            voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.name), str(dict_for_voting[value][3]), str(ctx.author.id)]})
+                            dict_for_voting[value][2] += 1
+                        else:
+                            voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3]), str(ctx.author.id)]})
+                            dict_for_voting[value][2] += 1
 
-                        voters_file = open("voters.txt", "a")
-                        voters_file.write("%s, %s; " %(dict_for_voting[value][0], ctx.author.name))
+                        voters_file = open("data/voters.txt", "a")
+                        voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[value][0], ctx.author.name, dict_for_voting[value][2], dict_for_voting[value][3]))
                         voters_file.close()
 
                         print('%s voted for %s'%(ctx.author.id, name))
@@ -200,33 +225,26 @@ async def vote_name(ctx, member:discord.Member):
     global dict_for_voting, voters
     if vote_start == True:
         if ctx.author.id not in voters:
-            if separated_vote == True and fase_2 == True:
-                for value in dict_for_voting:
-                    if str(member.id) == dict_for_voting[value][3]:
-                        await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[value][0]))
-                        voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3])]})
-                        dict_for_voting[value][2] += 1
-
-                        voters_file = open("voters.txt", "a")
-                        voters_file.write("%s, %s; " %(dict_for_voting[value][0], ctx.author.name))
-                        voters_file.close()
-
-                        print('%s voted for %s'%(ctx.author.id, member.id))
-                        print(dict_for_voting)
-                        print(voters)
-
-            elif separated_vote == True and fase_2 == False:
+            if separated_vote == True and fase_2 == False:
                 await ctx.send("We aren't in the voting phase yet.")
             
-            elif separated_vote == False:
+            else:
                 for value in dict_for_voting:
-                    if str(member.id) == dict_for_voting[value][3]:
-                        await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[value][0]))
-                        voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3])]})
-                        dict_for_voting[value][2] += 1
+                    if str(ctx.author.id) == dict_for_voting[member.id][3]:
+                        await ctx.send("You cannot vote for yourself.")
 
-                        voters_file = open("voters.txt", "a")
-                        voters_file.write("%s, %s; " %(dict_for_voting[value][0], ctx.author.name))
+                    elif dict_for_voting[value][3] == str(member.id):
+                        await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[value][0]))
+                        
+                        if ctx.author.nick == None:
+                            voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.name), str(dict_for_voting[value][3]), str(ctx.author.id)]})
+                            dict_for_voting[value][2] += 1
+                        else:
+                            voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3]), str(ctx.author.id)]})
+                            dict_for_voting[value][2] += 1
+
+                        voters_file = open("data/voters.txt", "a")
+                        voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[value][0], ctx.author.name, dict_for_voting[value][2], dict_for_voting[value][3]))
                         voters_file.close()
 
                         print('%s voted for %s'%(ctx.author.id, member.id))
@@ -250,6 +268,10 @@ async def remove_vote(ctx):
                 await ctx.send("%s your vote has been removed"%(ctx.author.name))
                 dict_for_voting[value][2] -= 1
                 del voters[ctx.author.id]
+
+                voters_file = open("data/voters.txt", "a")
+                voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[value][0], dict_for_voting[value][1], dict_for_voting[value][2], dict_for_voting[value][3]))
+                voters_file.close()
     
     else:
         await ctx.send("%s you haven't voted yet or you have already removed your vote"%(ctx.author.name))
@@ -259,16 +281,26 @@ async def remove_vote(ctx):
 @client.command(aliases=['removecontender', 'rc'])
 @commands.has_role('Bartender')
 async def remove_contender(ctx, member:discord.Member):
-    global dict_for_voting, voters
-    for value in dict_for_voting:
-        for x in voters:
-            if dict_for_voting[value][3] == str(member.id):
-                if voters[x][0].lower() == dict_for_voting[value][0].lower():
-                    del voters[x]
-            await ctx.send('The contender %s by %s has been removed'%(dict_for_voting[value][0] ,dict_for_voting[value][1]))
-            del dict_for_voting[value]
-            print(dict_for_voting)
-            print(voters)
+    global voters
+    print(member.id)
+    delete_id = []
+    for value in voters:
+        if voters[value][2] == dict_for_voting[member.id][3]:
+            delete_id.append(voters[value][3])
+
+    print(delete_id)
+
+    for value in delete_id:
+        del voters[int(value)]
+
+    print("test")
+
+    await ctx.send('The contender %s by %s has been removed'%(dict_for_voting[member.id][0] ,dict_for_voting[member.id][1]))
+
+    del dict_for_voting[member.id]
+
+    print(dict_for_voting)
+    print(voters)
 
 
 #joins both contenders into a single contender called in by the author--------------------------------------------------
@@ -287,112 +319,288 @@ async def join(ctx, member:discord.Member, member2:discord.Member):
     dict_for_voting[int(member.id)][2] += votes_to_add
     print(dict_for_voting, voters)
 
+    voters_file = open("data/voters.txt", "a")
+    voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[int(member.id)][0], dict_for_voting[int(member.id)][1], dict_for_voting[int(member.id)][2], dict_for_voting[int(member.id)][3]))
+    voters_file.close()
+
 
 # Decides the winner --------------------------------------------------------------------------------------------------------
 @client.command(aliases=['finish'])
 @commands.has_role('Bartender')
 async def decide_winner(ctx):
-    global winner
-    highest_votes = 0
+    global vote_start, separated_vote, fase_2
     if vote_start == True:
-        if separated_vote == True and fase_2 == True:
-            for value in dict_for_voting:
-                if dict_for_voting[value][2] > highest_votes:
-                    winner.clear()
-                    winner.update({dict_for_voting[value][3] : [dict_for_voting[value][0], dict_for_voting[value][1], dict_for_voting[value][2], dict_for_voting[value][3]]})
-                    highest_votes = int(dict_for_voting[value][2])
-
-                elif dict_for_voting[value][2] == highest_votes:
-                    winner.update({dict_for_voting[value][3] : [dict_for_voting[value][0], dict_for_voting[value][1], dict_for_voting[value][2], dict_for_voting[value][3]]})
-                
-            
-            print(len(winner), winner)
-            if len(winner) == 1:
-                embed = discord.Embed(title="The winner is:")
-                for value in winner:
-                    winner_id = ''
-                    winner_id += winner[value][3]
-                    winner_2 = ('<@%s>'%(winner_id))
-                    msg = "%s with %s votes, by:"%(winner[value][0], winner[value][2])
-                    embed.add_field(name=msg, value=winner_2, inline=False)
-                await ctx.send(embed=embed)
-            
-            elif len(winner) > 1:
-                embed = discord.Embed(title="There is a tie between:")
-                for value in winner:
-                    winner_id = ''
-                    winner_id += winner[value][3]
-                    winner_2 = ('<@%s>'%(winner_id))
-                    msg = "%s with %s votes, by:"%(winner[value][0], winner[value][2])
-                    embed.add_field(name=msg, value=winner_2, inline=False)
-                await ctx.send(embed=embed)
-
-        elif separated_vote == True and fase_2 == False:
-            await ctx.send("You are still on phase 1 please use b:separate to change phases")
+        if separated_vote == True and fase_2 == False:
+            await ctx.send("You are still on adding phase please use b:separate to change phases")
         
-        elif separated_vote == False:
-            for value in dict_for_voting:
-                if dict_for_voting[value][2] > highest_votes:
-                    winner.clear()
-                    winner.update({dict_for_voting[value][3] : [dict_for_voting[value][0], dict_for_voting[value][1], dict_for_voting[value][2], dict_for_voting[value][3]]})
-                    highest_votes = int(dict_for_voting[value][2])
+        else:
+            dict_for_voting_sorted = sorted(dict_for_voting.items(), key=lambda x: x[1], reverse=True)
+            
+            print(dict_for_voting_sorted)
+            await ctx.send("test")
 
-                elif dict_for_voting[value][2] == highest_votes:
-                    winner.update({dict_for_voting[value][3] : [dict_for_voting[value][0], dict_for_voting[value][1], dict_for_voting[value][2], dict_for_voting[value][3]]})
-                
-            
-            print(len(winner), winner)
-            if len(winner) == 1:
-                embed = discord.Embed(title="The winner is:")
-                for value in winner:
-                    winner_id = ''
-                    winner_id += winner[value][3]
-                    winner_2 = ('<@%s>'%(winner_id))
-                    msg = "%s with %s votes, by:"%(winner[value][0], winner[value][2])
-                    embed.add_field(name=msg, value=winner_2, inline=False)
-                await ctx.send(embed=embed)
-            
-            elif len(winner) > 1:
-                embed = discord.Embed(title="There is a tie between:")
-                for value in winner:
-                    winner_id = ''
-                    winner_id += winner[value][3]
-                    winner_2 = ('<@%s>'%(winner_id))
-                    msg = "%s with %s votes, by:"%(winner[value][0], winner[value][2])
-                    embed.add_field(name=msg, value=winner_2, inline=False)
-                await ctx.send(embed=embed)
+            embed = discord.Embed(
+                colour = discord.Colour.blue()
+            )
+            embed.set_author(name="These are the top #3")
+            msg = [
+                ("#1 %s"%(dict_for_voting_sorted[0][1][0]), "by <@%s> with %s votes"%(dict_for_voting_sorted[0][1][3], dict_for_voting_sorted[0][1][2]), False),
+                ("#2 %s"%(dict_for_voting_sorted[1][1][0]), "by <@%s> with %s votes"%(dict_for_voting_sorted[1][1][3], dict_for_voting_sorted[1][1][2]), False),
+                ("#3 %s"%(dict_for_voting_sorted[2][1][0]), "by <@%s> with %s votes"%(dict_for_voting_sorted[2][1][3], dict_for_voting_sorted[2][1][2]), False),
+            ]
+            for name, value, inline in msg:
+                embed.add_field(name=name, value=value, inline=inline)
+
+            await ctx.send(embed=embed)
+
+            vote_start = False
+            separated_vote = False
+            fase_2 = False
+                 
             
     else:
         await ctx.send("There is no voting session in progress")
 
 
+# Clears dict_for_voting -------------------------------------------------------------------------------------------------------------------
+@client.command()
+@commands.has_role('Bartender')
+async def clear(ctx):
+    global dict_for_voting
+    dict_for_voting.clear()
+    await ctx.send("The voting list has been cleared.")
+
+
+# prints all the commands and their functions ----------------------------------------------------------------------------------
 @client.command()
 async def help(ctx):
-    embed = discord.Embed()
+    embed = discord.Embed(
+        colour = discord.Colour.red()
+    )
     embed.set_author(name="HELP")
     msg = [
-        ("start", "Starts a voting session(NO PHASES)", False),
-        ("start on", 'Starts a voting session with SEPARATE PHASES', False),
-        ("stop", "Stops the ongoing voting session", False),
-        ("add", "adds your contender for voting", False),
-        ("change", "changes phases if the the ongoing voting session is separated", False),
-        ("votelist", "Shows the current contenders and their votes", False),
-        ("vote", "Votes using the exact title(NO CAPS NEEDED)", False),
-        ("votename", "Votes for the user using his @", False),
-        ("remove", "Removes your vote in case you voted for the wrong contender", False),
-        ("rc, removecontender", "Removes the contender using his @", False),
-        ("join", "Joins the contenders and their votes using their @'s", False),
-        ("finish", "Stops the ongoing voting session and decides a winner", False),
+        ("-SÓ PARA MODS", "-------------------------", False),
+        ("start off (theme)", "Começa uma votação (SEM FASES)", False),
+        ("start on (theme)", 'Começa uma votação (COM FASES)', False),
+        ("stop", "Para a votação em andamento", False),
+        ("rc, removecontender", "Remove o competidor", False),
+        ("join", "Junta os competidores e seus votos usando a @ de quem os cadastrou", False),
+        ("finish", "Termina a votação em andamento e define um ganhador", False),
+        ("clear", "Limpa a votelist", False),
+        ("continue start", "Começa uma votação para continuar", False),
+        ("continue stop", "Termina a votação para continuar e mostra os resultados(IRÁ LIMPAR OS DADOS APÓS ENCERRAR!)", False),
+        ("-CLIENTES", "-------------------------", False),
+        ("add", "Adiciona o seu competidor para votação", False),
+        ("change", "Troca a fase da votação", False),
+        ("votelist", "Mostra os competidores e sua contagem de votos", False),
+        ("vote", "Vota usando o nome do competidor(NÃO PRECISA DE CAPS)", False),
+        ("votename", "Vota usando @ de quem o cadastrou", False),
+        ("remove", "Remove o seu voto caso votou para o competidor errado", False),
+        ("yes", "Vota SIM para continuar", False),
+        ("no", "Vote NÃO para continuar", False),
+        ("removecontinue, delcontinue", "Remove o seu voto para continuar caso votou errado", False),
     ]
     for name, value, inline in msg:
         embed.add_field(name=name, value=value, inline=inline)
     await ctx.send(embed=embed)
 
 
-@client.command(aliases=['decision', 'decide', 'end'])
+@client.command(aliases=['continue'])
 @commands.has_role('Bartender')
-async def test(ctx, member=discord.Member):
-    print(member)
+async def _continue(ctx, arg):
+    global continue_vote, yes_votes, no_votes, winner, continue_voters
+    if arg.lower() == "start":
+        if continue_vote == True:
+            await ctx.send("A voting session to continue has already been started.")
+
+        elif continue_vote == False:
+            await ctx.send("A voting session to continue has been started. Use b:yes or b:no to vote.")
+            continue_vote = True
+
+    elif arg.lower() == "stop":
+        if continue_vote == False:
+            await ctx.send("No voting session to continue has been started.")
+
+        elif continue_vote == True:
+            continue_vote = False
+
+            update_winner()
+
+            winner_sorted = sorted(winner.items(), key=lambda x: x[1], reverse=True)
+
+            print(winner_sorted)
+
+            await ctx.send("A voting session to continue has been ended.")
+
+
+            embed = discord.Embed(
+                colour = discord.Colour.red()
+            )
+            embed.set_author(name="Continue voting results:")
+
+            msg = [
+                ("#1 %s"%(winner_sorted[0][0]), "with: %s votes"%(winner_sorted[0][1][0]), False),
+                ("#2 %s"%(winner_sorted[1][0]), "with: %s votes"%(winner_sorted[1][1][0]), False),
+            ]
+
+            for name, value, inline in msg:
+                embed.add_field(name=name, value=value, inline=inline)
+
+            await ctx.send(embed=embed)
+
+            winner.clear()
+            winner_sorted.clear()
+            continue_voters.clear()
+
+            yes_votes = 0
+            no_votes = 0
+
+            print(winner, winner_sorted, continue_voters, yes_votes, no_votes)
+
+
+@client.command()
+async def yes(ctx):
+    global continue_voters, continue_vote, yes_votes
+    if continue_vote == True:
+        if ctx.author.id not in continue_voters:
+            if ctx.author.nick == None:
+                continue_voters.update({ctx.author.id : ["yes", str(ctx.author.name), str(ctx.author.id)]})
+                yes_votes += 1
+            else:
+                continue_voters.update({ctx.author.id : ["yes", str(ctx.author.nick), str(ctx.author.id)]})
+                yes_votes += 1
+
+            print(yes_votes, continue_voters)
+            embed_1 = discord.Embed(
+                colour = discord.Colour.blue()
+            )
+
+            embed_1.set_author(name="%s you voted YES"%(continue_voters[ctx.author.id][1]))
+            await ctx.send(embed=embed_1)
+
+            update_winner()
+
+            winner_sorted = sorted(winner.items(), key=lambda x: x[1], reverse=True)
+
+            embed = discord.Embed(
+                colour = discord.Colour.red()
+            )
+            embed.set_author(name="Continue voting results:")
+
+            msg = [
+                ("#1 %s"%(winner_sorted[0][0]), "with: %s votes"%(winner_sorted[0][1][0]), False),
+                ("#2 %s"%(winner_sorted[1][0]), "with: %s votes"%(winner_sorted[1][1][0]), False),
+            ]
+
+            for name, value, inline in msg:
+                embed.add_field(name=name, value=value, inline=inline)
+
+            await ctx.send(embed=embed)
+
+        else:
+            await ctx.send("you have already voted")
+
+    else:
+        await ctx.send("There is no voting session to continue in progress.")
+
+
+@client.command()
+async def no(ctx):
+    global continue_voters, continue_vote, no_votes
+    if continue_vote == True:
+        if ctx.author.id not in continue_voters:
+            if ctx.author.nick == None:
+                continue_voters.update({ctx.author.id : ["no", str(ctx.author.name), str(ctx.author.id)]})
+                no_votes += 1
+            else:
+                continue_voters.update({ctx.author.id : ["no", str(ctx.author.nick), str(ctx.author.id)]})
+                no_votes += 1
+
+            print(yes_votes, continue_voters)
+            embed_1 = discord.Embed(
+                colour = discord.Colour.blue()
+            )
+
+            embed_1.set_author(name="%s you voted NO"%(continue_voters[ctx.author.id][1]))
+            await ctx.send(embed=embed_1)
+
+            update_winner()
+
+            winner_sorted = sorted(winner.items(), key=lambda x: x[1], reverse=True)
+
+            embed = discord.Embed(
+                colour = discord.Colour.red()
+            )
+            embed.set_author(name="Continue voting results:")
+
+            msg = [
+                ("#1 %s"%(winner_sorted[0][0]), "with: %s votes"%(winner_sorted[0][1][0]), False),
+                ("#2 %s"%(winner_sorted[1][0]), "with: %s votes"%(winner_sorted[1][1][0]), False),
+            ]
+
+            for name, value, inline in msg:
+                embed.add_field(name=name, value=value, inline=inline)
+
+            await ctx.send(embed=embed)
+
+        else:
+            await ctx.send("you have already voted")
+
+    else:
+        await ctx.send("There is no voting session to continue in progress.")
+
+
+@client.command(aliases=['removecontinue', 'delcontinue'])
+@commands.has_role('Bartender')
+async def remove_continue(ctx):
+    global continue_voters, yes_votes, no_votes
+    if ctx.author.id in continue_voters:
+        print(continue_voters)
+
+        if continue_voters[ctx.author.id][0] == "yes":
+            yes_votes -= 1
+        elif continue_voters[ctx.author.id][0] == "no":
+            no_votes -= 1
+        
+        del continue_voters[ctx.author.id]
+        
+        print(continue_voters)
+
+        await ctx.send("Your continue vote has been removed")
+
+        update_winner()
+
+        winner_sorted = sorted(winner.items(), key=lambda x: x[1], reverse=True)
+
+        embed = discord.Embed(
+            colour = discord.Colour.red()
+        )
+        embed.set_author(name="Continue voting results:")
+
+        msg = [
+            ("#1 %s"%(winner_sorted[0][0]), "with: %s votes"%(winner_sorted[0][1][0]), False),
+            ("#2 %s"%(winner_sorted[1][0]), "with: %s votes"%(winner_sorted[1][1][0]), False),
+        ]
+
+        for name, value, inline in msg:
+            embed.add_field(name=name, value=value, inline=inline)
+
+        await ctx.send(embed=embed)
+
+
+
+@client.command()
+@commands.has_role('Bartender')
+async def test(ctx, member:discord.Member):
+    member_id = ("<@%s>"%(member.id))
+    await ctx.send(member_id)
+    embed = discord.Embed(
+        colour = discord.Colour.blue()
+    )
+
+    embed.set_author(name=member_id)
+    await ctx.send(embed=embed)
+
 
 
 client.run('NzI5MjI4NDk3NjY2NTcyMzYw.XwF49g.CgFbFirFkMFFqPkd4KcmW35G2eE')

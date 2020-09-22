@@ -42,3 +42,37 @@ async def test(ctx, member:discord.Member):
 
 
 274590558528471053: ['goh', 'ruflees', '274590558528471053'], 745765600936067213: ['hxh', 'ruflees test', '745765600936067213']
+
+
+
+vote_start = True
+separated_vote = True
+fase_2 = True
+
+vote_start = False
+separated_vote = False
+fase_2 = False
+
+
+
+            print(len(winner), winner)
+            if len(winner) == 1:
+                embed = discord.Embed(title="The winner is:")
+                for value in winner:
+                    winner_id = ''
+                    winner_id += winner[value][3]
+                    winner_2 = ('<@%s>'%(winner_id))
+                    msg = "%s with %s votes, by:"%(winner[value][0], winner[value][2])
+                    embed.add_field(name=msg, value=winner_2, inline=False)
+                await ctx.send(embed=embed)
+            
+            elif len(winner) > 1:
+                embed = discord.Embed(title="There is a tie between:")
+                for value in winner:
+                    winner_id = ''
+                    winner_id += winner[value][3]
+                    winner_2 = ('<@%s>'%(winner_id))
+                    msg = "%s with %s votes, by:"%(winner[value][0], winner[value][2])
+                    embed.add_field(name=msg, value=winner_2, inline=False)
+                    tie = True
+                await ctx.send(embed=embed)
