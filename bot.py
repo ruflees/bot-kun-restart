@@ -24,6 +24,10 @@ async def on_command_error(ctx, error):
 
 
 #voting-----------------------------------
+# vote_start = True
+# separated_vote = True
+# fase_2 = True
+
 vote_start = False
 separated_vote = False
 fase_2 = False
@@ -37,6 +41,8 @@ tie_contenders = {}
 tie_votes = {}
 continue_voters = {}
 winner = {}
+
+vote_theme = []
 
 yes_votes = 2
 no_votes = 3
@@ -54,49 +60,38 @@ def update_winner():
 @client.command()
 @commands.has_role('Bartender')
 async def start(ctx, arg="off", *, theme):
-    global vote_start, separated_vote
+    global vote_start, separated_vote, vote_theme
     if vote_start == False:
         if arg.lower() == "on":
             separated_vote = True
-            vote_start = True
-            await ctx.send('A separated voting session has been started, please add your contenders.')
-            
-            embed = discord.Embed(
-                colour = discord.Colour.blue()
-            )
-            embed.set_author(name="The theme is: %s"%(theme))
+        vote_start = True
+        await ctx.send('A separated voting session has been started, please add your contenders.')
+        
+        embed = discord.Embed(
+            colour = discord.Colour.blue()
+        )
 
-            await ctx.send(embed=embed)
+        embed.set_author(name="The theme is: %s"%(theme))
 
-            print("A voting session has been started")
+        await ctx.send(embed=embed)
+        print("A voting session has been started")
 
-            x = datetime.datetime.now()
-            contenders_file = open("data/contenders.txt", "a")
-            voters_file = open("data/voters.txt", "a")
-            contenders_file.write(" # %s/%s/%s %s &: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y"), theme))
-            voters_file.write(" # %s/%s/%s %s &: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y"), theme))
-            contenders_file.close()
-            voters_file.close()
+        x = datetime.datetime.now()
 
-        elif arg.lower() == "off":
-            await ctx.send('A voting session has been started, please add your contenders.')
-            vote_start = True
-            print("A voting session has been started")
+        themes_file = open("data/themes/themes.txt", "a")
+        themes_file.write("# %s/%s/%s: %s "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y"), theme))
+        themes_file.close()
 
-            embed = discord.Embed(
-                colour = discord.Colour.blue()
-            )
-            embed.set_author(name="The theme is: %s"%(theme))
+        contenders_file = open("data/contenders/%s"%(theme), "a")
+        voters_file = open("data/voters/%s"%(theme), "a")
+        contenders_file.write(" # %s/%s/%s %s &: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y"), theme))
+        voters_file.write(" # %s/%s/%s %s &: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y"), theme))
+        contenders_file.close()
+        voters_file.close()
 
-            await ctx.send(embed=embed)
+        vote_theme.append(theme)
+        print(vote_theme)
 
-            x = datetime.datetime.now()
-            contenders_file = open("data/contenders.txt", "a")
-            voters_file = open("data/voters.txt", "a")
-            contenders_file.write(" # %s/%s/%s&: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y")))
-            voters_file.write(" # %s/%s/%s&: "%(x.strftime("%d"), x.strftime("%m"), x.strftime("%Y")))
-            contenders_file.close()
-            voters_file.close()
 
     elif vote_start == True:
         if separated_vote == True:
@@ -142,7 +137,7 @@ async def add(ctx, *, name):
             else:
                 dict_for_voting.update({ctx.author.id : [str(name), str(ctx.author.nick), 0, str(ctx.author.id)]})
 
-            contenders_file = open("data/contenders.txt", "a")
+            contenders_file = open("data/contenders/%s"%(vote_theme[0]), "a")
             contenders_file.write("%s, %s, %s, %s; " %(str(name), str(ctx.author.name), 0, str(ctx.author.id)))
             contenders_file.close()
 
@@ -191,12 +186,14 @@ async def vote(ctx, *, name):
             if separated_vote == True and fase_2 == False:
                 await ctx.send("We aren't in the voting phase yet.")
 
-            elif str(name).lower() == dict_for_voting[ctx.author.id][0].lower():
-                await ctx.send("You cannot vote for yourself.")
+            elif ctx.author.id in dict_for_voting:
+                if str(name).lower() == dict_for_voting[ctx.author.id][0].lower():
+                    await ctx.send("You cannot vote for yourself.")
             
             else:
                 for value in dict_for_voting:
                     if str(name).lower() == dict_for_voting[value][0].lower():
+                        print("test")
                         await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[value][0]))
                         if ctx.author.nick == None:
                             voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.name), str(dict_for_voting[value][3]), str(ctx.author.id)]})
@@ -205,8 +202,8 @@ async def vote(ctx, *, name):
                             voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3]), str(ctx.author.id)]})
                             dict_for_voting[value][2] += 1
 
-                        voters_file = open("data/voters.txt", "a")
-                        voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[value][0], ctx.author.name, dict_for_voting[value][2], dict_for_voting[value][3]))
+                        voters_file = open("data/voters/%s"%(vote_theme[0]), "a")
+                        voters_file.write("%s, %s, %s, %s, %s, 'ok'; " %(dict_for_voting[value][0], ctx.author.name, dict_for_voting[value][2], dict_for_voting[value][3], str(ctx.author.id)))
                         voters_file.close()
 
                         print('%s voted for %s'%(ctx.author.id, name))
@@ -228,28 +225,27 @@ async def vote_name(ctx, member:discord.Member):
             if separated_vote == True and fase_2 == False:
                 await ctx.send("We aren't in the voting phase yet.")
             
-            else:
-                for value in dict_for_voting:
-                    if str(ctx.author.id) == dict_for_voting[member.id][3]:
-                        await ctx.send("You cannot vote for yourself.")
+            elif int(member.id) in dict_for_voting:
+                if str(ctx.author.id) == dict_for_voting[member.id][3]:
+                    await ctx.send("You cannot vote for yourself.")
 
-                    elif dict_for_voting[value][3] == str(member.id):
-                        await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[value][0]))
+                else:
+                    await ctx.send("%s voted for: %s"%(ctx.author.name, dict_for_voting[int(member.id)][0]))
                         
-                        if ctx.author.nick == None:
-                            voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.name), str(dict_for_voting[value][3]), str(ctx.author.id)]})
-                            dict_for_voting[value][2] += 1
-                        else:
-                            voters.update({ctx.author.id : [dict_for_voting[value][0], str(ctx.author.nick), str(dict_for_voting[value][3]), str(ctx.author.id)]})
-                            dict_for_voting[value][2] += 1
+                    if ctx.author.nick == None:
+                        voters.update({ctx.author.id : [dict_for_voting[int(member.id)][0], str(ctx.author.name), str(dict_for_voting[int(member.id)][3]), str(ctx.author.id)]})
+                        dict_for_voting[int(member.id)][2] += 1
+                    else:
+                        voters.update({ctx.author.id : [dict_for_voting[int(member.id)][0], str(ctx.author.nick), str(dict_for_voting[int(member.id)][3]), str(ctx.author.id)]})
+                        dict_for_voting[int(member.id)][2] += 1
 
-                        voters_file = open("data/voters.txt", "a")
-                        voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[value][0], ctx.author.name, dict_for_voting[value][2], dict_for_voting[value][3]))
-                        voters_file.close()
+                    voters_file = open("data/voters/%s"%(vote_theme[0]), "a")
+                    voters_file.write("%s, %s, %s, %s, %s, 'ok'; " %(dict_for_voting[int(member.id)][0], ctx.author.name, dict_for_voting[int(member.id)][2], dict_for_voting[int(member.id)][3], str(ctx.author.id)))
+                    voters_file.close()
 
-                        print('%s voted for %s'%(ctx.author.id, member.id))
-                        print(dict_for_voting)
-                        print(voters)
+                    print('%s voted for %s'%(ctx.author.id, member.id))
+                    print(dict_for_voting)
+                    print(voters)
 
         else:
             await ctx.send("you have already voted")
@@ -269,8 +265,8 @@ async def remove_vote(ctx):
                 dict_for_voting[value][2] -= 1
                 del voters[ctx.author.id]
 
-                voters_file = open("data/voters.txt", "a")
-                voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[value][0], dict_for_voting[value][1], dict_for_voting[value][2], dict_for_voting[value][3]))
+                voters_file = open("data/voters/%s"%(vote_theme[0]), "a")
+                voters_file.write("%s, %s, %s, %s, %s, 'removed'; " %(dict_for_voting[value][0], dict_for_voting[value][1], dict_for_voting[value][2], dict_for_voting[value][3], ctx.author.id))
                 voters_file.close()
     
     else:
@@ -294,6 +290,10 @@ async def remove_contender(ctx, member:discord.Member):
         del voters[int(value)]
 
     print("test")
+
+    contenders_file = open("data/contenders/%s"%(vote_theme[0]), "a")
+    contenders_file.write("%s, %s, %s, %s, 'removed'; " %(str(dict_for_voting[member.id][0]), str(dict_for_voting[member.id][1]), 0, str(dict_for_voting[member.id][3])))
+    contenders_file.close()
 
     await ctx.send('The contender %s by %s has been removed'%(dict_for_voting[member.id][0] ,dict_for_voting[member.id][1]))
 
@@ -319,7 +319,11 @@ async def join(ctx, member:discord.Member, member2:discord.Member):
     dict_for_voting[int(member.id)][2] += votes_to_add
     print(dict_for_voting, voters)
 
-    voters_file = open("data/voters.txt", "a")
+    contenders_file = open("data/contenders/%s"%(vote_theme[0]), "a")
+    contenders_file.write("%s, %s, %s, %s, 'removed'; " %(str(dict_for_voting[member2.id][0]), str(dict_for_voting[member2.id][1]), 0, str(dict_for_voting[member2.id][3])))
+    contenders_file.close()
+
+    voters_file = open("data//%s"%(vote_theme[0]), "a")
     voters_file.write("%s, %s, %s, %s; " %(dict_for_voting[int(member.id)][0], dict_for_voting[int(member.id)][1], dict_for_voting[int(member.id)][2], dict_for_voting[int(member.id)][3]))
     voters_file.close()
 
@@ -366,43 +370,13 @@ async def decide_winner(ctx):
 @client.command()
 @commands.has_role('Bartender')
 async def clear(ctx):
-    global dict_for_voting
+    global dict_for_voting, vote_theme
     dict_for_voting.clear()
+    voters.clear()
+    vote_theme.clear()
+
+    print(vote_theme)
     await ctx.send("The voting list has been cleared.")
-
-
-# prints all the commands and their functions ----------------------------------------------------------------------------------
-@client.command()
-async def help(ctx):
-    embed = discord.Embed(
-        colour = discord.Colour.red()
-    )
-    embed.set_author(name="HELP")
-    msg = [
-        ("-SÓ PARA MODS", "-------------------------", False),
-        ("start off (theme)", "Começa uma votação (SEM FASES)", False),
-        ("start on (theme)", 'Começa uma votação (COM FASES)', False),
-        ("stop", "Para a votação em andamento", False),
-        ("rc, removecontender", "Remove o competidor", False),
-        ("join", "Junta os competidores e seus votos usando a @ de quem os cadastrou", False),
-        ("finish", "Termina a votação em andamento e define um ganhador", False),
-        ("clear", "Limpa a votelist", False),
-        ("continue start", "Começa uma votação para continuar", False),
-        ("continue stop", "Termina a votação para continuar e mostra os resultados(IRÁ LIMPAR OS DADOS APÓS ENCERRAR!)", False),
-        ("-CLIENTES", "-------------------------", False),
-        ("add", "Adiciona o seu competidor para votação", False),
-        ("change", "Troca a fase da votação", False),
-        ("votelist", "Mostra os competidores e sua contagem de votos", False),
-        ("vote", "Vota usando o nome do competidor(NÃO PRECISA DE CAPS)", False),
-        ("votename", "Vota usando @ de quem o cadastrou", False),
-        ("remove", "Remove o seu voto caso votou para o competidor errado", False),
-        ("yes", "Vota SIM para continuar", False),
-        ("no", "Vote NÃO para continuar", False),
-        ("removecontinue, delcontinue", "Remove o seu voto para continuar caso votou errado", False),
-    ]
-    for name, value, inline in msg:
-        embed.add_field(name=name, value=value, inline=inline)
-    await ctx.send(embed=embed)
 
 
 @client.command(aliases=['continue'])
@@ -498,7 +472,7 @@ async def yes(ctx):
             await ctx.send(embed=embed)
 
         else:
-            await ctx.send("you have already voted")
+            await ctx.send("You have already voted.")
 
     else:
         await ctx.send("There is no voting session to continue in progress.")
@@ -544,7 +518,7 @@ async def no(ctx):
             await ctx.send(embed=embed)
 
         else:
-            await ctx.send("you have already voted")
+            await ctx.send("You have already voted.")
 
     else:
         await ctx.send("There is no voting session to continue in progress.")
@@ -554,39 +528,84 @@ async def no(ctx):
 @commands.has_role('Bartender')
 async def remove_continue(ctx):
     global continue_voters, yes_votes, no_votes
-    if ctx.author.id in continue_voters:
-        print(continue_voters)
+    if continue_vote == True:
+        if ctx.author.id in continue_voters:
+            print(continue_voters)
 
-        if continue_voters[ctx.author.id][0] == "yes":
-            yes_votes -= 1
-        elif continue_voters[ctx.author.id][0] == "no":
-            no_votes -= 1
+            if continue_voters[ctx.author.id][0] == "yes":
+                yes_votes -= 1
+            elif continue_voters[ctx.author.id][0] == "no":
+                no_votes -= 1
+            
+            del continue_voters[ctx.author.id]
+            
+            print(continue_voters)
+
+            await ctx.send("Your continue vote has been removed")
+
+            update_winner()
+
+            winner_sorted = sorted(winner.items(), key=lambda x: x[1], reverse=True)
+
+            embed = discord.Embed(
+                colour = discord.Colour.red()
+            )
+            embed.set_author(name="Continue voting results:")
+
+            msg = [
+                ("#1 %s"%(winner_sorted[0][0]), "with: %s votes"%(winner_sorted[0][1][0]), False),
+                ("#2 %s"%(winner_sorted[1][0]), "with: %s votes"%(winner_sorted[1][1][0]), False),
+            ]
+
+            for name, value, inline in msg:
+                embed.add_field(name=name, value=value, inline=inline)
+
+            await ctx.send(embed=embed)
         
-        del continue_voters[ctx.author.id]
-        
-        print(continue_voters)
+        else:
+            await ctx.send("You haven't voted yet.")
+    else:
+        await ctx.send("There is no voting session to continue in progress.")
 
-        await ctx.send("Your continue vote has been removed")
 
-        update_winner()
+@client.command()
+@commands.has_role('Bartender')
+async def recover(ctx):
+    pass
 
-        winner_sorted = sorted(winner.items(), key=lambda x: x[1], reverse=True)
 
-        embed = discord.Embed(
-            colour = discord.Colour.red()
-        )
-        embed.set_author(name="Continue voting results:")
-
-        msg = [
-            ("#1 %s"%(winner_sorted[0][0]), "with: %s votes"%(winner_sorted[0][1][0]), False),
-            ("#2 %s"%(winner_sorted[1][0]), "with: %s votes"%(winner_sorted[1][1][0]), False),
-        ]
-
-        for name, value, inline in msg:
-            embed.add_field(name=name, value=value, inline=inline)
-
-        await ctx.send(embed=embed)
-
+# prints all the commands and their functions ----------------------------------------------------------------------------------
+@client.command()
+async def help(ctx):
+    embed = discord.Embed(
+        colour = discord.Colour.red()
+    )
+    embed.set_author(name="HELP")
+    msg = [
+        ("-SÓ PARA MODS", "-------------------------", False),
+        ("start off (theme)", "Começa uma votação (SEM FASES)", False),
+        ("start on (theme)", 'Começa uma votação (COM FASES)', False),
+        ("stop", "Para a votação em andamento", False),
+        ("rc, removecontender", "Remove o competidor", False),
+        ("join", "Junta os competidores e seus votos usando a @ de quem os cadastrou", False),
+        ("finish", "Termina a votação em andamento e define um ganhador", False),
+        ("clear", "Limpa a votelist", False),
+        ("continue start", "Começa uma votação para continuar", False),
+        ("continue stop", "Termina a votação para continuar e mostra os resultados(IRÁ LIMPAR OS DADOS APÓS ENCERRAR!)", False),
+        ("-CLIENTES", "-------------------------", False),
+        ("add", "Adiciona o seu competidor para votação", False),
+        ("change", "Troca a fase da votação", False),
+        ("votelist", "Mostra os competidores e sua contagem de votos", False),
+        ("vote", "Vota usando o nome do competidor(NÃO PRECISA DE CAPS)", False),
+        ("votename", "Vota usando @ de quem o cadastrou", False),
+        ("remove", "Remove o seu voto caso votou para o competidor errado", False),
+        ("yes", "Vota SIM para continuar", False),
+        ("no", "Vote NÃO para continuar", False),
+        ("removecontinue, delcontinue", "Remove o seu voto para continuar caso votou errado", False),
+    ]
+    for name, value, inline in msg:
+        embed.add_field(name=name, value=value, inline=inline)
+    await ctx.send(embed=embed)
 
 
 @client.command()
@@ -600,7 +619,6 @@ async def test(ctx, member:discord.Member):
 
     embed.set_author(name=member_id)
     await ctx.send(embed=embed)
-
 
 
 client.run('NzI5MjI4NDk3NjY2NTcyMzYw.XwF49g.CgFbFirFkMFFqPkd4KcmW35G2eE')
