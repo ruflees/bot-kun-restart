@@ -621,4 +621,4 @@ async def test(ctx, member:discord.Member):
     await ctx.send(embed=embed)
 
 
-client.run('NzI5MjI4NDk3NjY2NTcyMzYw.XwF49g.CgFbFirFkMFFqPkd4KcmW35G2eE')
+client.run('*****')
